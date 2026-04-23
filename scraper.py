@@ -1,74 +1,54 @@
-import urllib.request
-import urllib.parse
-import xml.etree.ElementTree as ET
+import arxiv
 import os
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime
-import time  # 新增模块：用于控制重试等待时间
 
 def fetch_arxiv_papers():
     print("开始从 arXiv 获取最新论文...")
-    # 使用 Python 官方库自动安全编码网址，彻底告别 400 错误
-    base_url = 'http://export.arxiv.org/api/query?'
-    params = {
-        'search_query': 'all:LLM OR all:agent',
-        'sortBy': 'submittedDate',
-        'sortOrder': 'desc',
-        'max_results': 5
-    }
-    url = base_url + urllib.parse.urlencode(params)
-    
-    # 终极解法：遵循 arXiv 官方建议，在 User-Agent 中填写真实邮箱，获取信任放行
-    headers = {
-        'User-Agent': 'DailyPaperScraper/1.0 (mohq6@mail2.sysu.edu.cn)'
-    }
-    req = urllib.request.Request(url, headers=headers)
-    
-    # 增加自动重试机制：最多尝试 3 次
-    for attempt in range(3):
-        try:
-            response = urllib.request.urlopen(req)
-            xml_data = response.read()
-            root = ET.fromstring(xml_data)
-            namespace = {'atom': 'http://www.w3.org/2005/Atom'}
+    try:
+        # 配置官方客户端，自带延迟重试，完美避开 429 和 400 报错
+        client = arxiv.Client(
+            page_size=5,
+            delay_seconds=3,
+            num_retries=3
+        )
+        
+        # 自由组合你想要的关键词
+        search = arxiv.Search(
+            query='all:"Large Language Model" OR all:"LLM" OR all:"Autonomous Agent"',
+            max_results=5,
+            sort_by=arxiv.SortCriterion.SubmittedDate,
+            sort_order=arxiv.SortOrder.Descending
+        )
+        
+        papers = []
+        # 直接遍历对象，不再需要自己去解析 XML
+        for result in client.results(search):
+            title = result.title.replace('\n', ' ')
+            summary = result.summary.replace('\n', ' ')
+            link = result.entry_id
             
-            papers = []
-            for entry in root.findall('atom:entry', namespace):
-                title = entry.find('atom:title', namespace).text.strip().replace('\n', ' ')
-                summary = entry.find('atom:summary', namespace).text.strip().replace('\n', ' ')
-                link = entry.find('atom:id', namespace).text
-                
-                paper_html = f"""
-                <div style='margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;'>
-                    <h3 style='color: #2980b9; margin-bottom: 5px;'>{title}</h3>
-                    <p style='margin: 5px 0;'><b>链接:</b> <a href='{link}'>{link}</a></p>
-                    <p style='margin: 5px 0; color: #34495e; line-height: 1.5;'><b>摘要:</b> {summary[:350]}...</p>
-                </div>
-                """
-                papers.append(paper_html)
+            paper_html = f"""
+            <div style='margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee;'>
+                <h3 style='color: #2980b9; margin-bottom: 5px;'>{title}</h3>
+                <p style='margin: 5px 0;'><b>链接:</b> <a href='{link}'>{link}</a></p>
+                <p style='margin: 5px 0; color: #34495e; line-height: 1.5;'><b>摘要:</b> {summary[:350]}...</p>
+            </div>
+            """
+            papers.append(paper_html)
             
-            if papers:
-                print("✅ 论文获取成功！")
-                return "".join(papers)
-            else:
-                print("⚠️ API 响应正常，但没有解析到论文数据。")
-                return None
-                
-        except urllib.error.HTTPError as e:
-            print(f"第 {attempt + 1} 次尝试失败: HTTP Error {e.code}")
-            if e.code == 429:
-                print("触发频次限制，等待 5 秒后重试...")
-                time.sleep(5)
-            else:
-                break  # 如果是 400 等其他错误，直接跳出重试
-        except Exception as e:
-            print(f"获取论文时发生未知错误: {e}")
-            break
+        if papers:
+            print("✅ 论文获取成功！")
+            return "".join(papers)
+        else:
+            print("⚠️ API 响应正常，但未找到匹配的论文。")
+            return None
             
-    print("❌ 多次尝试后依然获取失败，取消后续操作。")
-    return None
+    except Exception as e:
+        print(f"❌ 获取论文失败: {e}")
+        return None
 
 def send_email(content):
     print("准备发送邮件...")
@@ -76,8 +56,7 @@ def send_email(content):
     password = os.environ.get('EMAIL_PASSWORD')
     receiver_email = "mohq6@mail2.sysu.edu.cn"
     
-    # 请确保此处的 smtp_server 和你的发件邮箱匹配
-    # QQ: smtp.qq.com | 163: smtp.163.com | Gmail: smtp.gmail.com
+    # 邮箱 SMTP 服务器 (默认为 QQ 邮箱)
     smtp_server = "smtp.qq.com" 
     smtp_port = 465
 
