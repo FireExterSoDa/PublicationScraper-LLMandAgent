@@ -10,8 +10,15 @@ import time  # 新增模块：用于控制重试等待时间
 
 def fetch_arxiv_papers():
     print("开始从 arXiv 获取最新论文...")
-    query = 'all:LLM+OR+all:agent'
-    url = f'http://export.arxiv.org/api/query?search_query={query}&sortBy=submittedDate&sortOrder=desc&max_results=5'
+    # 使用 Python 官方库自动安全编码网址，彻底告别 400 错误
+    base_url = 'http://export.arxiv.org/api/query?'
+    params = {
+        'search_query': 'all:LLM OR all:agent',
+        'sortBy': 'submittedDate',
+        'sortOrder': 'desc',
+        'max_results': 5
+    }
+    url = base_url + urllib.parse.urlencode(params)
     
     # 终极解法：遵循 arXiv 官方建议，在 User-Agent 中填写真实邮箱，获取信任放行
     headers = {
