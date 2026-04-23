@@ -10,8 +10,9 @@ from datetime import datetime
 def fetch_arxiv_papers():
     print("开始从 arXiv 获取最新论文...")
     # 构造检索词：大语言模型 或 LLM 或 智能体
-    query = 'all:"Large Language Model" OR all:"LLM" OR all:"Autonomous Agent"'
-    url = f'http://export.arxiv.org/api/query?search_query={urllib.parse.quote(query)}&sortBy=submittedDate&sortOrder=desc&max_results=5'
+    # 修改后的代码（去掉了双引号，并直接使用加号拼接，防止解析错误）：
+    query = 'all:LLM+OR+all:agent'
+    url = f'http://export.arxiv.org/api/query?search_query={query}&sortBy=submittedDate&sortOrder=desc&max_results=5'
     
     try:
         response = urllib.request.urlopen(url)
