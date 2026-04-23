@@ -1,0 +1,26 @@
+name: Daily Paper Tracker
+
+on:
+  schedule:
+    # 每天 UTC 时间 1:00 运行，对应北京时间上午 9:00
+    - cron: '0 1 * * *' 
+  workflow_dispatch: # 允许在 GitHub 网页上直接点击按钮手动运行测试
+
+jobs:
+  run-scraper-and-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 设置 Python 3.10 环境
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: 执行 Python 脚本并发送邮件
+        env:
+          # 从 GitHub Secrets 中读取敏感信息
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: python scraper.py
